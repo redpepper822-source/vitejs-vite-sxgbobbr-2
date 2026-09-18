@@ -199,7 +199,7 @@ export default function App() {
 
   const createRoom = async () => {
     if (!user) return;
-    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ').charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
+    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
     setRoomCode(code);
 
     const defaultSongs = [{ id: Date.now().toString(), title: '첫 번째 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
