@@ -314,13 +314,13 @@ export default function App() {
         
         {currentView !== 'login' && (
           <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-            <div className="max-w-6xl mx-auto px-4 py-3.5 flex justify-between items-center">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
               <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setCurrentView('my_hub')}>
                 <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-sm font-black shadow-md">EH</div>
-                <span className="font-black text-lg text-slate-900 tracking-tight hidden sm:inline-block">ENSEMBLE HUB</span>
+                <span className="font-black text-base md:text-lg text-slate-900 tracking-tight">ENSEMBLE HUB</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-slate-500 mr-1">🧑‍🎤 {user?.displayName}님 ({profilePart})</span>
+                <span className="text-xs font-bold text-slate-500 hidden sm:inline-block">🧑‍🎤 {user?.displayName}님 ({profilePart})</span>
                 <button onClick={() => setCurrentView('profile')} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100">⚙️ 프로필</button>
                 <button onClick={handleLogout} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200">👋 로그아웃</button>
               </div>
@@ -579,40 +579,40 @@ export default function App() {
 
           {currentView === 'admin_dash' && (
             <div className="space-y-6 pb-20">
-              {/* 인도자 관리 콘솔 배너 하단 영역에 진한 보라색 바(Bar)를 덧대어 텍스트 가독성 확보 */}
-              <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between gap-6 relative overflow-hidden">
+              {/* 모바일 화면에서 줄바꿈 및 가독성이 완벽하게 보장되도록 수정된 인도자 배너 */}
+              <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-stretch gap-6 relative overflow-hidden">
                 <div className="relative z-10 space-y-3">
                   <div className="inline-block bg-indigo-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
                     👑 인도자 관리 콘솔
                   </div>
-                  <h1 className="text-3xl font-black">{roomName}</h1>
-                  {/* 진한 보라색(indigo-700) 덧댐 바와 흰색 글자 적용 */}
+                  <h1 className="text-2xl md:text-3xl font-black">{roomName}</h1>
                   <div className="inline-flex items-center space-x-2 bg-indigo-700 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md">
                     <span>⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화 ⚡)</span>
                   </div>
                 </div>
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 min-w-[200px] text-center flex flex-col justify-center relative z-10">
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 md:min-w-[200px] text-center flex flex-col justify-center relative z-10">
                   <div className="text-xs font-bold text-slate-400 mb-1">🎫 단원 초대용 공유 코드</div>
                   <div className="text-2xl font-black font-mono text-indigo-400">{roomCode}</div>
                 </div>
               </div>
 
-              <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-lg mx-auto my-4">
+              {/* 모바일 환경에서 탭들이 찌그러지지 않고 나란히 정렬되도록 수정된 탭바 */}
+              <div className="grid grid-cols-3 gap-1 bg-slate-200 p-1.5 rounded-2xl max-w-xl mx-auto my-4">
                 <button 
                   onClick={() => setAdminTab('songs')} 
-                  className={`flex-1 py-3 rounded-xl text-xs font-black transition ${adminTab === 'songs' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`py-3 px-2 rounded-xl text-[11px] md:text-xs font-black transition text-center truncate ${adminTab === 'songs' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
                 >
-                  🎵 콘티 곡 관리 ({songs.length})
+                  🎵 콘티 ({songs.length})
                 </button>
                 <button 
                   onClick={() => setAdminTab('volunteers')} 
-                  className={`flex-1 py-3 rounded-xl text-xs font-black transition ${adminTab === 'volunteers' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`py-3 px-2 rounded-xl text-[11px] md:text-xs font-black transition text-center truncate ${adminTab === 'volunteers' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
                 >
-                  🙋‍♂️ 이번 주 봉사자 명단
+                  🙋‍♂️ 봉사자 명단
                 </button>
                 <button 
                   onClick={() => setAdminTab('note')} 
-                  className={`flex-1 py-3 rounded-xl text-xs font-black transition ${adminTab === 'note' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                  className={`py-3 px-2 rounded-xl text-[11px] md:text-xs font-black transition text-center truncate ${adminTab === 'note' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
                 >
                   📖 묵상 노트
                 </button>
