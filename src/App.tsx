@@ -27,6 +27,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberId, setRememberId] = useState<boolean>(false); // 아이디 저장 상태
   
   const [signupName, setSignupName] = useState('');
   const [signupPart, setSignupPart] = useState('보컬');
@@ -48,6 +49,16 @@ export default function App() {
   const partsList = ['보컬', '어쿠스틱 기타', '일렉 기타', '베이스', '드럼', '메인 건반', '세컨 건반', '엔지니어/미디어', '인도자'];
   const daysOfWeek = ['월', '화', '수', '목', '금', '토', '일'];
 
+  // --- 0. 아이디 저장하기 불러오기 ---
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('ensemble_saved_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberId(true);
+    }
+  }, []);
+
+  // --- 1. 인증 상태 감지 (자동 로그인) ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -133,9 +144,17 @@ export default function App() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return alert('이메일과 비밀번호를 입력해주세요.');
+    
+    // 아이디 저장 처리
+    if (rememberId) {
+      localStorage.setItem('ensemble_saved_email', email);
+    } else {
+      localStorage.removeItem('ensemble_saved_email');
+    }
+
     if (isLoginMode) {
       try { await signInWithEmailAndPassword(auth, email, password); } 
-      catch (err) { alert('로그인 실패: 정보를 확인해주세요.'); }
+      catch (err) { alert('로그인 실패: 이메일과 비밀번호를 확인해주세요.'); }
     } else {
       if (password.length < 6) return alert('비밀번호는 6자리 이상이어야 합니다.');
       if (!agreeTerms || !agreePrivacy) return alert('이용약관 및 개인정보 처리에 동의해주세요.');
@@ -176,9 +195,9 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => { signOut(auth); setEmail(''); setPassword(''); };
+  const handleLogout = () => { signOut(auth); setPassword(''); };
 
-  if (isAuthLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-indigo-600">서버 연결 중...</div>;
+  if (isAuthLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-indigo-600">안전하게 연결 중...</div>;
 
   return (
     <>
@@ -189,7 +208,7 @@ export default function App() {
           <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
             <div className="max-w-6xl mx-auto px-4 py-3.5 flex justify-between items-center">
               <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setCurrentView('my_hub')}>
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xl shadow-md">🎼</div>
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-sm font-black shadow-md">EH</div>
                 <span className="font-black text-lg text-slate-900 tracking-tight hidden sm:inline-block">ENSEMBLE HUB</span>
               </div>
               <div className="flex items-center space-x-2">
@@ -206,34 +225,48 @@ export default function App() {
           {currentView === 'login' && (
             <div className="max-w-md mx-auto w-full bg-white rounded-3xl p-8 border shadow-xl space-y-6">
                <div className="text-center space-y-3">
-                <div className="w-16 h-16 mx-auto bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg">🎼</div>
-                <h1 className="text-2xl font-black text-slate-900">{isLoginMode ? '다시 오셨군요!' : '새로운 앙상블 합류하기'}</h1>
+                <div className="w-16 h-16 mx-auto bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg tracking-wider">EH</div>
+                <h1 className="text-2xl font-black text-slate-900">{isLoginMode ? '환영합니다' : '새로운 앙상블 합류하기'}</h1>
                 <p className="text-xs text-slate-500 font-medium">
-                  {isLoginMode ? '안전하게 클라우드에 🎵 로그인하세요.' : '가입하고 모든 합주 🍡 기록을 연동하세요.'}
+                  {isLoginMode ? 'ENSEMBLE HUB에 로그인하세요.' : '가입하고 모든 합주 기록을 연동하세요.'}
                 </p>
               </div>
               <form onSubmit={handleAuth} className="space-y-4">
-                <input type="email" placeholder="📧 이메일 주소" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-2xl text-sm font-bold" />
-                <input type="password" placeholder="🔒 비밀번호 (6자리 이상)" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-2xl text-sm font-bold" />
+                <input type="email" placeholder="이메일 주소" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition" />
+                <input type="password" placeholder="비밀번호 (6자리 이상)" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition" />
+                
+                {isLoginMode && (
+                  <div className="flex items-center space-x-2 px-1">
+                    <input type="checkbox" id="remember" checked={rememberId} onChange={(e)=>setRememberId(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded cursor-pointer border-slate-300" />
+                    <label htmlFor="remember" className="text-xs font-bold text-slate-600 cursor-pointer">아이디 저장하기</label>
+                  </div>
+                )}
+
                 {!isLoginMode && (
-                  <>
+                  <div className="space-y-4 pt-2">
                     <div className="flex space-x-2">
-                      <input type="text" placeholder="👤 닉네임" value={signupName} onChange={(e)=>setSignupName(e.target.value)} className="w-1/2 p-4 bg-slate-50 border rounded-2xl text-sm font-bold" />
-                      <select value={signupPart} onChange={(e)=>setSignupPart(e.target.value)} className="w-1/2 p-4 bg-slate-50 border rounded-2xl text-sm font-bold">
+                      <input type="text" placeholder="닉네임" value={signupName} onChange={(e)=>setSignupName(e.target.value)} className="w-1/2 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500" />
+                      <select value={signupPart} onChange={(e)=>setSignupPart(e.target.value)} className="w-1/2 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500">
                         {partsList.map(p=><option key={p} value={p}>{p}</option>)}
                       </select>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border space-y-2">
-                      <div className="flex items-center space-x-2"><input type="checkbox" checked={agreeTerms} onChange={e=>setAgreeTerms(e.target.checked)}/><label className="text-xs font-bold text-slate-600">(필수) 📜 서비스 이용약관 동의</label></div>
-                      <div className="flex items-center space-x-2"><input type="checkbox" checked={agreePrivacy} onChange={e=>setAgreePrivacy(e.target.checked)}/><label className="text-xs font-bold text-slate-600">(필수) 🛡️ 개인정보 수집 및 이용 동의</label></div>
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex items-start space-x-2"><input type="checkbox" id="term1" checked={agreeTerms} onChange={e=>setAgreeTerms(e.target.checked)} className="mt-0.5 cursor-pointer"/><label htmlFor="term1" className="text-xs font-bold text-slate-600 cursor-pointer">(필수) 서비스 이용약관 동의</label></div>
+                      <div className="flex items-start space-x-2"><input type="checkbox" id="term2" checked={agreePrivacy} onChange={e=>setAgreePrivacy(e.target.checked)} className="mt-0.5 cursor-pointer"/><label htmlFor="term2" className="text-xs font-bold text-slate-600 cursor-pointer">(필수) 개인정보 수집 및 이용 동의</label></div>
                     </div>
-                  </>
+                  </div>
                 )}
-                <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-lg">
-                  {isLoginMode ? '🚀 로그인하여 워크스페이스 열기' : '✨ 동의하고 계정 생성하기'}
+
+                <button type="submit" className="w-full py-4 mt-2 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-indigo-700 active:scale-95 transition">
+                  {isLoginMode ? '로그인' : '동의하고 가입하기'}
                 </button>
               </form>
-              <button onClick={() => setIsLoginMode(!isLoginMode)} className="w-full text-center text-xs font-bold text-indigo-600 mt-4">{isLoginMode ? '계정이 없나요? 회원가입' : '이미 계정이 있나요? 로그인'}</button>
+
+              <div className="text-center pt-4 border-t border-slate-100">
+                <button onClick={() => setIsLoginMode(!isLoginMode)} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition">
+                  {isLoginMode ? '아직 계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인 화면으로'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -342,7 +375,7 @@ export default function App() {
                   <p className="text-xs text-slate-500 mt-1">수정 즉시 실시간으로 단원들 화면에 ⚡ 동기화됩니다.</p>
                 </div>
                 <button onClick={handleAddSong} className="px-5 py-3 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 transition flex flex-col items-center">
-                  <span className="text-sm font-black">+ 🎼 새로운 곡 목록 추가</span>
+                  <span className="text-sm font-black">+ 🎵 새로운 곡 추가</span>
                 </button>
               </div>
 
@@ -351,13 +384,13 @@ export default function App() {
                   <div key={song.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                     <div className="flex justify-between items-center border-b pb-3">
                       <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">🎹 {idx + 1}번 곡 설정</span>
-                      <button onClick={() => handleDeleteSong(song.id)} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">🗑️ 이 곡 삭제</button>
+                      <button onClick={() => handleDeleteSong(song.id)} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">🗑️ 삭제</button>
                     </div>
                     <div className="space-y-3">
                       <div><label className="text-[10px] font-bold text-slate-400">🏷️ 곡 제목</label><input type="text" value={song.title} onChange={(e) => handleUpdateSong(song.id, 'title', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" /></div>
                       <div><label className="text-[10px] font-bold text-slate-400">🔄 송폼 (곡의 흐름)</label><input type="text" value={song.form} onChange={(e) => handleUpdateSong(song.id, 'form', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">🎬 유튜브 참고 영상 URL (단원들이 클릭 시 이동)</label><input type="text" value={song.youtubeUrl} onChange={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://youtube.com/..." /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">📄 악보 이미지 URL (단원들 화면에 표시됨)</label><input type="text" value={song.sheetUrl} onChange={(e) => handleUpdateSong(song.id, 'sheetUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://..." /></div>
+                      <div><label className="text-[10px] font-bold text-slate-400">🎬 유튜브 영상 URL</label><input type="text" value={song.youtubeUrl} onChange={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://youtube.com/..." /></div>
+                      <div><label className="text-[10px] font-bold text-slate-400">📄 악보 이미지 URL</label><input type="text" value={song.sheetUrl} onChange={(e) => handleUpdateSong(song.id, 'sheetUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://..." /></div>
                       <div><label className="text-[10px] font-bold text-slate-400">📖 관련 말씀 구절</label><input type="text" value={song.scripture} onChange={(e) => handleUpdateSong(song.id, 'scripture', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" /></div>
                       <div><label className="text-[10px] font-bold text-slate-400">💭 인도자 묵상 노트</label><textarea rows={2} value={song.meditation} onChange={(e) => handleUpdateSong(song.id, 'meditation', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" /></div>
                     </div>
@@ -368,7 +401,7 @@ export default function App() {
               <div className="pt-8 border-t border-slate-200">
                 <button onClick={() => setCurrentView('member_dash')} className="w-full py-5 bg-slate-100 text-slate-700 rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-200 transition flex flex-col items-center">
                   <span className="text-base font-black">👁️ 단원 앱 화면 미리보기</span>
-                  <span className="text-[11px] font-bold text-slate-500">단원들의 스마트폰에서 어떻게 보이는지 직접 확인합니다</span>
+                  <span className="text-[11px] font-bold text-slate-500">단원들의 기기에서 어떻게 보이는지 직접 확인합니다</span>
                 </button>
               </div>
             </div>
@@ -459,7 +492,7 @@ export default function App() {
                      {partsList.map(part => <option key={part} value={part}>{part}</option>)}
                    </select>
                  </div>
-                 <button onClick={async () => { await updateProfile(user, { displayName: signupName }); await set(ref(db, `users/${user.uid}/profile`), { mainPart: profilePart }); alert('저장완료!'); setCurrentView('my_hub'); }} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-md flex justify-center">
+                 <button onClick={async () => { await updateProfile(user, { displayName: signupName }); await set(ref(db, `users/${user.uid}/profile`), { mainPart: profilePart }); alert('저장완료!'); setCurrentView('my_hub'); }} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-md flex justify-center hover:bg-indigo-700 transition">
                    💾 변경사항 저장하기
                  </button>
                </div>
@@ -467,7 +500,7 @@ export default function App() {
                <div className="bg-red-50 rounded-3xl p-6 border border-red-100 mt-8">
                  <h3 className="text-sm font-black text-red-600 mb-2">⚠️ 계정 영구 탈퇴</h3>
                  <p className="text-xs text-red-500 font-medium mb-4">탈퇴 시 모든 정보가 파기됩니다.</p>
-                 <button onClick={async () => { if(window.confirm("정말 탈퇴하시겠습니까?")) { await remove(ref(db, `users/${user.uid}`)); await deleteUser(user); setCurrentView('login'); } }} className="w-full py-3 bg-white border border-red-200 text-red-600 rounded-xl font-black">
+                 <button onClick={async () => { if(window.confirm("정말 탈퇴하시겠습니까?")) { await remove(ref(db, `users/${user.uid}`)); await deleteUser(user); setCurrentView('login'); } }} className="w-full py-3 bg-white border border-red-200 text-red-600 rounded-xl font-black hover:bg-red-100 transition">
                    🗑️ 계정 삭제 진행하기
                  </button>
                </div>
