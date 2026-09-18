@@ -228,6 +228,7 @@ export default function App() {
 
         <main className={`flex-1 flex flex-col ${currentView === 'login' ? 'justify-center' : ''} max-w-6xl mx-auto w-full p-4 md:p-8`}>
           
+          {/* 로그인 / 회원가입 */}
           {currentView === 'login' && (
             <div className="max-w-md mx-auto w-full bg-white rounded-3xl p-8 border shadow-xl space-y-6">
                <div className="text-center space-y-3">
@@ -254,7 +255,7 @@ export default function App() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-indigo-600"
                   >
-                    {showPassword ? "숨기기 🙈" : "보기 🙉"}
+                    {showPassword ? "숨기기 🙈" : "보기 👁️"}
                   </button>
                 </div>
 
@@ -272,7 +273,7 @@ export default function App() {
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-indigo-600"
                     >
-                      {showConfirmPassword ? "숨기기 🙈" : "보기 🙉"}
+                      {showConfirmPassword ? "숨기기 🙈" : "보기 👁️"}
                     </button>
                   </div>
                 )}
@@ -366,6 +367,7 @@ export default function App() {
             </div>
           )}
 
+          {/* 워크스페이스 */}
           {currentView === 'my_hub' && (
             <div className="max-w-4xl mx-auto w-full space-y-8">
               <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 border-b border-slate-200 pb-6">
@@ -400,16 +402,17 @@ export default function App() {
             </div>
           )}
 
+          {/* 방 만들기 / 참여하기 선택 (카드 균형 맞춤) */}
           {currentView === 'home' && (
-            <div className="max-w-2xl mx-auto my-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <button onClick={() => setCurrentView('create_room')} className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition text-left space-y-4">
+            <div className="max-w-4xl mx-auto my-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <button onClick={() => setCurrentView('create_room')} className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition text-left space-y-4 flex flex-col justify-between">
                 <div className="text-4xl">👑</div>
                 <div>
                   <h3 className="text-2xl font-black mb-1">새로운 합주 방 만들기</h3>
                   <p className="text-xs text-indigo-200 leading-relaxed">인도자(리더) 전용 메뉴입니다. 새로운 방을 개설하고 단원들에게 코드를 공유할 수 있습니다.</p>
                 </div>
               </button>
-              <button onClick={() => setCurrentView('join_room')} className="p-8 bg-slate-900 text-white rounded-3xl shadow-xl hover:bg-slate-800 transition text-left space-y-4">
+              <button onClick={() => setCurrentView('join_room')} className="p-8 bg-slate-900 text-white rounded-3xl shadow-xl hover:bg-slate-800 transition text-left space-y-4 flex flex-col justify-between">
                 <div className="text-4xl">🎫</div>
                 <div>
                   <h3 className="text-2xl font-black mb-1">초대 코드로 방 참여하기</h3>
@@ -419,6 +422,7 @@ export default function App() {
             </div>
           )}
 
+          {/* 방 개설 상세 설정 (연습시간 중앙정렬 및 버튼 글자 크기 최적화) */}
           {currentView === 'create_room' && (
             <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
               <div>
@@ -428,10 +432,14 @@ export default function App() {
               <div className="space-y-4">
                 <div><label className="text-xs font-bold text-slate-500 mb-1 block">🏷️ 방 이름</label><input type="text" value={roomName} onChange={(e) => setRoomName(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-bold" /></div>
                 <div><label className="text-xs font-bold text-slate-500 mb-1 block">📅 연습 요일</label><div className="flex gap-1">{daysOfWeek.map(d=><button key={d} onClick={()=>setSelectedDay(d)} className={`flex-1 py-3 rounded-xl font-bold text-xs ${selectedDay===d?'bg-indigo-600 text-white':'bg-slate-100 text-slate-500'}`}>{d}</button>)}</div></div>
-                <div><label className="text-xs font-bold text-slate-500 mb-1 block">⏰ 연습 시간</label><input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-bold" /></div>
-                <button onClick={createRoom} className="w-full py-5 bg-indigo-600 text-white rounded-2xl shadow-lg mt-4 flex flex-col items-center">
-                  <span className="text-lg font-black">✨ 방 생성 완료 및 관리자 콘솔 입장</span>
-                  <span className="text-[11px] font-medium text-indigo-200">설정된 정보로 데이터베이스에 방을 등록합니다</span>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1 block">⏰ 연습 시간</label>
+                  <input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-bold text-center" />
+                </div>
+                {/* 글자 크기를 조절하여 버튼 박스 밖으로 삐져나오지 않도록 개선 */}
+                <button onClick={createRoom} className="w-full py-4 px-4 bg-indigo-600 text-white rounded-2xl shadow-lg mt-4 flex flex-col items-center justify-center">
+                  <span className="text-base font-black">✨ 방 생성 완료 및 관리자 콘솔 입장</span>
+                  <span className="text-[10px] font-medium text-indigo-200 mt-0.5">설정된 정보로 데이터베이스에 방을 등록합니다</span>
                 </button>
               </div>
             </div>
@@ -496,7 +504,7 @@ export default function App() {
 
               <div className="pt-8 border-t border-slate-200">
                 <button onClick={() => setCurrentView('member_dash')} className="w-full py-5 bg-slate-100 text-slate-700 rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-200 transition flex flex-col items-center">
-                  <span className="text-base font-black">🎵 일반단원 앱 화면 미리보기</span>
+                  <span className="text-base font-black">👁️ 단원 앱 화면 미리보기</span>
                   <span className="text-[11px] font-bold text-slate-500">단원들의 기기에서 어떻게 보이는지 직접 확인합니다</span>
                 </button>
               </div>
