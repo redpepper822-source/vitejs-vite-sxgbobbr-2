@@ -54,7 +54,6 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState<string>('수'); 
   const [selectedTime, setSelectedTime] = useState<string>('19:30'); 
   
-  // 방 생성 시 설정할 찬양팀 구성 목록 (기본 세팅)
   const defaultAvailableParts = ['싱어', '건반', '세컨', '베이스', '드럼', '어쿠스틱 기타', '일렉기타'];
   const [roomVolunteers, setRoomVolunteers] = useState<Volunteer[]>([
     { id: '1', part: '싱어', name: '' },
@@ -125,7 +124,6 @@ export default function App() {
     });
   };
 
-  // 월요일 자동 초기화 체크 및 방 데이터 로드
   useEffect(() => {
     let unsubscribeRoom = () => {};
     if ((currentView === 'admin_dash' || currentView === 'member_dash') && roomCode) {
@@ -134,16 +132,13 @@ export default function App() {
         if (snapshot.exists()) {
           const data = snapshot.val();
           
-          // 매주 월요일 초기화 로직 체크
           const lastResetDate = data.lastResetDate || '';
           const today = new Date();
-          // 이번 주 월요일 날짜 문자열 계산 (YYYY-MM-DD)
-          const dayOfWeekIdx = today.getDay(); // 0(일)~6(토)
+          const dayOfWeekIdx = today.getDay();
           const diffToMonday = today.getDate() - dayOfWeekIdx + (dayOfWeekIdx === 0 ? -6 : 1);
           const mondayDate = new Date(today.setDate(diffToMonday)).toISOString().split('T')[0];
 
           if (lastResetDate !== mondayDate) {
-            // 월요일이 바뀌었으므로 콘티 곡 및 봉사자 명단 초기화 실행
             const resetSongs = [{ id: Date.now().toString(), title: '새로운 콘티 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
             const resetVolunteers = (data.volunteers || []).map((v: Volunteer) => ({ ...v, name: '' }));
             
@@ -216,7 +211,6 @@ export default function App() {
     }
   };
 
-  // 방 생성 시 찬양팀 구성 파트 추가/삭제 관리
   const handleAddVolunteerPart = () => {
     const newItem: Volunteer = { id: Date.now().toString(), part: newPartName, name: '' };
     setRoomVolunteers([...roomVolunteers, newItem]);
@@ -256,11 +250,11 @@ export default function App() {
     }
   };
 
-      const createRoom = async () => {
+  const createRoom = async () => {
     if (!user) return;
     const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
     setRoomCode(code);
-      
+
     const today = new Date();
     const dayOfWeekIdx = today.getDay();
     const diffToMonday = today.getDate() - dayOfWeekIdx + (dayOfWeekIdx === 0 ? -6 : 1);
@@ -362,7 +356,7 @@ export default function App() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-indigo-600"
                   >
-                    {showPassword ? "숨기기 🙈" : "보기 👁️"}
+                    {showPassword ? "숨기기 🙈" : "보기 🙉"}
                   </button>
                 </div>
 
@@ -380,7 +374,7 @@ export default function App() {
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-indigo-600"
                     >
-                      {showConfirmPassword ? "숨기기 🙈" : "보기 👁️"}
+                      {showConfirmPassword ? "숨기기 🙈" : "보기 🙉"}
                     </button>
                   </div>
                 )}
@@ -527,7 +521,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 방 개설 상세 설정 (찬양팀 구성 설정 추가) */}
           {currentView === 'create_room' && (
             <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
               <div>
@@ -542,7 +535,6 @@ export default function App() {
                   <input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} className="w-full p-4 bg-slate-50 border rounded-xl font-bold text-center" />
                 </div>
 
-                {/* 찬양팀 구성 설정 탭 및 추가하기 */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   <label className="text-xs font-bold text-indigo-600 block">👥 우리 찬양팀 구성 설정</label>
                   <div className="flex space-x-2">
@@ -585,22 +577,26 @@ export default function App() {
             </div>
           )}
 
-          {/* 인도자 관리 콘솔 (봉사자 명단 탭 추가) */}
           {currentView === 'admin_dash' && (
             <div className="space-y-6 pb-20">
-              <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between gap-6">
-                <div>
-                  <span className="text-[10px] font-black bg-indigo-500 px-3 py-1.5 rounded-full uppercase">👑 인도자 관리 콘솔</span>
-                  <h1 className="text-3xl font-black mt-3">{roomName}</h1>
-                  <p className="text-sm text-slate-400 mt-2">⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화 ⚡)</p>
+              {/* 인도자 관리 콘솔 배너 하단 영역에 진한 보라색 바(Bar)를 덧대어 텍스트 가독성 확보 */}
+              <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between gap-6 relative overflow-hidden">
+                <div className="relative z-10 space-y-3">
+                  <div className="inline-block bg-indigo-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
+                    👑 인도자 관리 콘솔
+                  </div>
+                  <h1 className="text-3xl font-black">{roomName}</h1>
+                  {/* 진한 보라색(indigo-700) 덧댐 바와 흰색 글자 적용 */}
+                  <div className="inline-flex items-center space-x-2 bg-indigo-700 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md">
+                    <span>⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화 ⚡)</span>
+                  </div>
                 </div>
-                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 min-w-[200px] text-center flex flex-col justify-center">
+                <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 min-w-[200px] text-center flex flex-col justify-center relative z-10">
                   <div className="text-xs font-bold text-slate-400 mb-1">🎫 단원 초대용 공유 코드</div>
                   <div className="text-2xl font-black font-mono text-indigo-400">{roomCode}</div>
                 </div>
               </div>
 
-              {/* 탭 전환 (콘티 곡 관리 / 봉사자 명단 / 말씀 및 묵상) */}
               <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-lg mx-auto my-4">
                 <button 
                   onClick={() => setAdminTab('songs')} 
@@ -672,7 +668,6 @@ export default function App() {
                   </div>
                 </div>
               ) : adminTab === 'volunteers' ? (
-                /* 이번 주 봉사자 명단 관리 탭 */
                 <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
                   <div>
                     <h3 className="text-xl font-black text-slate-900">🙋‍♂️ 이번 주 찬양팀 봉사자 명단</h3>
@@ -721,7 +716,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 단원 뷰 (봉사자 명단 카드 추가 연동) */}
           {currentView === 'member_dash' && (
             <div className="space-y-6 pb-20">
               <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-8 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between gap-4">
@@ -766,7 +760,6 @@ export default function App() {
                     </div>
 
                     <div className="space-y-6">
-                      {/* 이번 주 봉사자 명단 위젯 */}
                       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
                         <h4 className="text-[11px] font-black text-indigo-600 uppercase">🙋‍♂️ 이번 주 봉사자 명단</h4>
                         <div className="space-y-2">
