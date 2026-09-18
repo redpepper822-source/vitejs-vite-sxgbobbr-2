@@ -27,10 +27,17 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberId, setRememberId] = useState<boolean>(false); // 아이디 저장 상태
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [rememberId, setRememberId] = useState<boolean>(false); 
   
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [signupName, setSignupName] = useState('');
   const [signupPart, setSignupPart] = useState('보컬');
+  
+  const [termsScrolled, setTermsScrolled] = useState(false);
+  const [privacyScrolled, setPrivacyScrolled] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   
@@ -49,7 +56,15 @@ export default function App() {
   const partsList = ['보컬', '어쿠스틱 기타', '일렉 기타', '베이스', '드럼', '메인 건반', '세컨 건반', '엔지니어/미디어', '인도자'];
   const daysOfWeek = ['월', '화', '수', '목', '금', '토', '일'];
 
-  // --- 0. 아이디 저장하기 불러오기 ---
+  const termsText = `제1조 (목적) 본 약관은 ENSEMBLE HUB(이하 "서비스")가 제공하는 제반 서비스의 이용과 관련하여 회사와 회원과의 권리, 의무 및 책임사항을 규정합니다.
+제2조 (회원의 의무) 회원은 서비스 가입 시 정확한 정보를 기재해야 하며, 계정 정보를 안전하게 관리할 책임이 있습니다.
+제3조 (서비스 제공) 팀원 간 콘티 공유 및 일정 관리를 위한 실시간 동기화 플랫폼을 제공합니다. (내용을 끝까지 읽고 동의해주세요.)`;
+
+  const privacyText = `1. 수집하는 개인정보: 이메일, 비밀번호, 닉네임, 주 세션 파트
+2. 수집 및 이용 목적: 회원 식별, 합주 방 개설 및 참여 기록 유지, 실시간 콘티 동기화
+3. 보유 및 이용 기간: 회원 탈퇴 시 즉시 영구 파기됩니다.
+4. 동의 거부 권리: 동의를 거부할 수 있으나 거부 시 서비스 이용이 제한됩니다. (내용을 끝까지 읽고 동의해주세요.)`;
+
   useEffect(() => {
     const savedEmail = localStorage.getItem('ensemble_saved_email');
     if (savedEmail) {
@@ -58,7 +73,6 @@ export default function App() {
     }
   }, []);
 
-  // --- 1. 인증 상태 감지 (자동 로그인) ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -103,11 +117,8 @@ export default function App() {
           setRoomName(data.name || '합주 방');
           setSelectedDay(data.day || '수');
           setSelectedTime(data.time || '19:30');
-          if (data.songs) {
-            setSongs(data.songs);
-          } else {
-            setSongs([]);
-          }
+          if (data.songs) setSongs(data.songs);
+          else setSongs([]);
         }
       });
       unsubscribeRoom = unsub;
@@ -117,9 +128,7 @@ export default function App() {
 
   const saveSongsToDB = async (newSongs: Song[]) => {
     setSongs(newSongs); 
-    if (roomCode) {
-      await set(ref(db, `rooms/${roomCode}/songs`), newSongs);
-    }
+    if (roomCode) await set(ref(db, `rooms/${roomCode}/songs`), newSongs);
   };
 
   const handleAddSong = () => {
@@ -145,19 +154,16 @@ export default function App() {
     e.preventDefault();
     if (!email || !password) return alert('이메일과 비밀번호를 입력해주세요.');
     
-    // 아이디 저장 처리
-    if (rememberId) {
-      localStorage.setItem('ensemble_saved_email', email);
-    } else {
-      localStorage.removeItem('ensemble_saved_email');
-    }
+    if (rememberId) localStorage.setItem('ensemble_saved_email', email);
+    else localStorage.removeItem('ensemble_saved_email');
 
     if (isLoginMode) {
       try { await signInWithEmailAndPassword(auth, email, password); } 
       catch (err) { alert('로그인 실패: 이메일과 비밀번호를 확인해주세요.'); }
     } else {
       if (password.length < 6) return alert('비밀번호는 6자리 이상이어야 합니다.');
-      if (!agreeTerms || !agreePrivacy) return alert('이용약관 및 개인정보 처리에 동의해주세요.');
+      if (password !== confirmPassword) return alert('비밀번호와 비밀번호 확인란이 일치하지 않습니다.');
+      if (!agreeTerms || !agreePrivacy) return alert('약관을 끝까지 읽고 모두 동의해 주세요.');
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(cred.user, { displayName: signupName });
@@ -195,7 +201,7 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => { signOut(auth); setPassword(''); };
+  const handleLogout = () => { signOut(auth); setPassword(''); setConfirmPassword(''); };
 
   if (isAuthLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-indigo-600">안전하게 연결 중...</div>;
 
@@ -231,9 +237,45 @@ export default function App() {
                   {isLoginMode ? 'ENSEMBLE HUB에 로그인하세요.' : '가입하고 모든 합주 기록을 연동하세요.'}
                 </p>
               </div>
+
               <form onSubmit={handleAuth} className="space-y-4">
-                <input type="email" placeholder="이메일 주소" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition" />
-                <input type="password" placeholder="비밀번호 (6자리 이상)" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition" />
+                <input type="email" placeholder="이메일 주소" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500" />
+                
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="비밀번호 (6자리 이상)" 
+                    value={password} 
+                    onChange={(e)=>setPassword(e.target.value)} 
+                    className="w-full p-4 pr-12 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-indigo-600"
+                  >
+                    {showPassword ? "숨기기 🙈" : "보기 🙉"}
+                  </button>
+                </div>
+
+                {!isLoginMode && (
+                  <div className="relative">
+                    <input 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      placeholder="비밀번호 확인" 
+                      value={confirmPassword} 
+                      onChange={(e)=>setConfirmPassword(e.target.value)} 
+                      className="w-full p-4 pr-12 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-indigo-600"
+                    >
+                      {showConfirmPassword ? "숨기기 🙈" : "보기 🙉"}
+                    </button>
+                  </div>
+                )}
                 
                 {isLoginMode && (
                   <div className="flex items-center space-x-2 px-1">
@@ -245,14 +287,68 @@ export default function App() {
                 {!isLoginMode && (
                   <div className="space-y-4 pt-2">
                     <div className="flex space-x-2">
-                      <input type="text" placeholder="닉네임" value={signupName} onChange={(e)=>setSignupName(e.target.value)} className="w-1/2 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500" />
-                      <select value={signupPart} onChange={(e)=>setSignupPart(e.target.value)} className="w-1/2 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:border-indigo-500">
+                      <input type="text" placeholder="닉네임" value={signupName} onChange={(e)=>setSignupName(e.target.value)} className="w-1/2 p-4 bg-slate-50 border rounded-2xl text-sm font-bold focus:outline-none" />
+                      <select value={signupPart} onChange={(e)=>setSignupPart(e.target.value)} className="w-1/2 p-4 bg-slate-50 border rounded-2xl text-sm font-bold focus:outline-none">
                         {partsList.map(p=><option key={p} value={p}>{p}</option>)}
                       </select>
                     </div>
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                      <div className="flex items-start space-x-2"><input type="checkbox" id="term1" checked={agreeTerms} onChange={e=>setAgreeTerms(e.target.checked)} className="mt-0.5 cursor-pointer"/><label htmlFor="term1" className="text-xs font-bold text-slate-600 cursor-pointer">(필수) 서비스 이용약관 동의</label></div>
-                      <div className="flex items-start space-x-2"><input type="checkbox" id="term2" checked={agreePrivacy} onChange={e=>setAgreePrivacy(e.target.checked)} className="mt-0.5 cursor-pointer"/><label htmlFor="term2" className="text-xs font-bold text-slate-600 cursor-pointer">(필수) 개인정보 수집 및 이용 동의</label></div>
+
+                    <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 block mb-1">📜 서비스 이용약관 (끝까지 스크롤하세요)</label>
+                        <div 
+                          onScroll={(e) => {
+                            const target = e.currentTarget;
+                            if (target.scrollHeight - target.scrollTop <= target.clientHeight + 15) {
+                              setTermsScrolled(true);
+                            }
+                          }}
+                          className="h-24 overflow-y-auto p-3 bg-white border border-slate-200 rounded-xl text-[11px] text-slate-500 leading-relaxed whitespace-pre-wrap"
+                        >
+                          {termsText}
+                        </div>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <input 
+                            type="checkbox" 
+                            id="term1" 
+                            disabled={!termsScrolled}
+                            checked={agreeTerms} 
+                            onChange={e=>setAgreeTerms(e.target.checked)} 
+                            className="w-4 h-4 text-indigo-600 rounded cursor-pointer disabled:opacity-40" 
+                          />
+                          <label htmlFor="term1" className={`text-xs font-bold cursor-pointer ${termsScrolled ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {termsScrolled ? '(필수) 서비스 이용약관 동의 완료' : '(필수) 약관을 맨 아래까지 읽어주세요'}
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200">
+                        <label className="text-[11px] font-bold text-slate-500 block mb-1">🛡️ 개인정보 수집 및 이용 (끝까지 스크롤하세요)</label>
+                        <div 
+                          onScroll={(e) => {
+                            const target = e.currentTarget;
+                            if (target.scrollHeight - target.scrollTop <= target.clientHeight + 15) {
+                              setPrivacyScrolled(true);
+                            }
+                          }}
+                          className="h-24 overflow-y-auto p-3 bg-white border border-slate-200 rounded-xl text-[11px] text-slate-500 leading-relaxed whitespace-pre-wrap"
+                        >
+                          {privacyText}
+                        </div>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <input 
+                            type="checkbox" 
+                            id="term2" 
+                            disabled={!privacyScrolled}
+                            checked={agreePrivacy} 
+                            onChange={e=>setAgreePrivacy(e.target.checked)} 
+                            className="w-4 h-4 text-indigo-600 rounded cursor-pointer disabled:opacity-40" 
+                          />
+                          <label htmlFor="term2" className={`text-xs font-bold cursor-pointer ${privacyScrolled ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {privacyScrolled ? '(필수) 개인정보 수집 동의 완료' : '(필수) 약관을 맨 아래까지 읽어주세요'}
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -263,7 +359,7 @@ export default function App() {
               </form>
 
               <div className="text-center pt-4 border-t border-slate-100">
-                <button onClick={() => setIsLoginMode(!isLoginMode)} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition">
+                <button onClick={() => { setIsLoginMode(!isLoginMode); setPassword(''); setConfirmPassword(''); }} className="text-xs font-bold text-slate-500 hover:text-indigo-600 transition">
                   {isLoginMode ? '아직 계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인 화면으로'}
                 </button>
               </div>
@@ -400,7 +496,7 @@ export default function App() {
 
               <div className="pt-8 border-t border-slate-200">
                 <button onClick={() => setCurrentView('member_dash')} className="w-full py-5 bg-slate-100 text-slate-700 rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-200 transition flex flex-col items-center">
-                  <span className="text-base font-black">👁️ 단원 앱 화면 미리보기</span>
+                  <span className="text-base font-black">🎵 일반단원 앱 화면 미리보기</span>
                   <span className="text-[11px] font-bold text-slate-500">단원들의 기기에서 어떻게 보이는지 직접 확인합니다</span>
                 </button>
               </div>
