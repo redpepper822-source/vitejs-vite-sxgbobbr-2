@@ -7,7 +7,7 @@ interface Song {
   id: string;
   title: string;
   form: string;
-  sheetUrl: string; // 이미지 파일(Base64) 또는 URL 저장
+  sheetUrl: string; 
   youtubeUrl: string;
 }
 
@@ -49,10 +49,10 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState<string>('19:30'); 
   
   const [songs, setSongs] = useState<Song[]>([]);
-  const [scripture, setScripture] = useState<string>(''); // 공통 말씀 구절
-  const [meditation, setMeditation] = useState<string>(''); // 공통 묵상 노트
+  const [scripture, setScripture] = useState<string>(''); 
+  const [meditation, setMeditation] = useState<string>(''); 
   
-  const [adminTab, setAdminTab] = useState<'songs' | 'note'>('songs'); // 인도자 에디터 내부 탭
+  const [adminTab, setAdminTab] = useState<'songs' | 'note'>('songs'); 
   const [selectedSongTab, setSelectedSongTab] = useState<number>(0); 
 
   const partsList = ['보컬', '어쿠스틱 기타', '일렉 기타', '베이스', '드럼', '메인 건반', '세컨 건반', '엔지니어/미디어', '인도자'];
@@ -151,7 +151,6 @@ export default function App() {
     saveToDB(updatedSongs, scripture, meditation);
   };
 
-  // 갤러리에서 이미지 파일 선택 시 Base64로 변환하여 저장
   const handleImageUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -199,7 +198,7 @@ export default function App() {
 
   const createRoom = async () => {
     if (!user) return;
-    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
+    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ').charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
     setRoomCode(code);
 
     const defaultSongs = [{ id: Date.now().toString(), title: '첫 번째 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
@@ -230,6 +229,17 @@ export default function App() {
   return (
     <>
       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+      {/* 📱 스마트폰 바로가기 추가 시 앱 이름과 로고(아이콘)로 인식되도록 설정하는 메타 태그 */}
+      <head>
+        <title>ENSEMBLE HUB</title>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Ensemble Hub" />
+        {/* SVG 기반의 고품질 EH 로고 심볼을 웹앱 아이콘으로 동적 지정 */}
+        <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%234f46e5'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='42' font-weight='900' font-family='sans-serif'>EH</text></svg>" />
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%234f46e5'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='42' font-weight='900' font-family='sans-serif'>EH</text></svg>" />
+      </head>
+
       <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col pb-10">
         
         {currentView !== 'login' && (
@@ -476,7 +486,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 인도자 관리 콘솔 (탭 분리 적용) */}
           {currentView === 'admin_dash' && (
             <div className="space-y-6 pb-20">
               <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between gap-6">
@@ -491,7 +500,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 상단 탭 전환 (콘티 곡 관리 vs 예배 말씀 및 묵상 노트) */}
               <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-md mx-auto my-4">
                 <button 
                   onClick={() => setAdminTab('songs')} 
@@ -540,7 +548,6 @@ export default function App() {
                             <input type="text" value={song.youtubeUrl} onChange={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://youtube.com/..." />
                           </div>
                           
-                          {/* 악보 이미지 갤러리 업로드 */}
                           <div>
                             <label className="text-[10px] font-bold text-slate-400 block mb-1">📄 악보 이미지 (스마트폰 갤러리에서 가져오기)</label>
                             <div className="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -558,7 +565,6 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                /* 예배 말씀 및 묵상 노트 전용 탭 */
                 <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
                   <div>
                     <h3 className="text-xl font-black text-slate-900">📖 예배 말씀 및 인도자 묵상 노트 설정</h3>
@@ -586,7 +592,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 단원 뷰 (실시간 연동) */}
           {currentView === 'member_dash' && (
             <div className="space-y-6 pb-20">
               <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-8 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between gap-4">
