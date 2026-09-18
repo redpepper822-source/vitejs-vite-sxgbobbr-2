@@ -7,10 +7,8 @@ interface Song {
   id: string;
   title: string;
   form: string;
-  sheetUrl: string;
+  sheetUrl: string; // 이미지 파일(Base64) 또는 URL 저장
   youtubeUrl: string;
-  scripture: string;
-  meditation: string;
 }
 
 interface RoomHistory {
@@ -51,6 +49,10 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState<string>('19:30'); 
   
   const [songs, setSongs] = useState<Song[]>([]);
+  const [scripture, setScripture] = useState<string>(''); // 공통 말씀 구절
+  const [meditation, setMeditation] = useState<string>(''); // 공통 묵상 노트
+  
+  const [adminTab, setAdminTab] = useState<'songs' | 'note'>('songs'); // 인도자 에디터 내부 탭
   const [selectedSongTab, setSelectedSongTab] = useState<number>(0); 
 
   const partsList = ['보컬', '어쿠스틱 기타', '일렉 기타', '베이스', '드럼', '메인 건반', '세컨 건반', '엔지니어/미디어', '인도자'];
@@ -119,6 +121,8 @@ export default function App() {
           setSelectedTime(data.time || '19:30');
           if (data.songs) setSongs(data.songs);
           else setSongs([]);
+          if (data.scripture) setScripture(data.scripture);
+          if (data.meditation) setMeditation(data.meditation);
         }
       });
       unsubscribeRoom = unsub;
@@ -126,19 +130,37 @@ export default function App() {
     return () => unsubscribeRoom();
   }, [currentView, roomCode]);
 
-  const saveSongsToDB = async (newSongs: Song[]) => {
-    setSongs(newSongs); 
-    if (roomCode) await set(ref(db, `rooms/${roomCode}/songs`), newSongs);
+  const saveToDB = async (newSongs: Song[], newScripture: string, newMeditation: string) => {
+    setSongs(newSongs);
+    setScripture(newScripture);
+    setMeditation(newMeditation);
+    if (roomCode) {
+      await set(ref(db, `rooms/${roomCode}/songs`), newSongs);
+      await set(ref(db, `rooms/${roomCode}/scripture`), newScripture);
+      await set(ref(db, `rooms/${roomCode}/meditation`), newMeditation);
+    }
   };
 
   const handleAddSong = () => {
-    const newSong: Song = { id: Date.now().toString(), title: `새로운 곡 ${songs.length + 1}`, form: 'Intro - Verse - Chorus', sheetUrl: '', youtubeUrl: '', scripture: '', meditation: '' };
-    saveSongsToDB([...songs, newSong]);
+    const newSong: Song = { id: Date.now().toString(), title: `새로운 곡 ${songs.length + 1}`, form: 'Intro - Verse - Chorus', sheetUrl: '', youtubeUrl: '' };
+    saveToDB([...songs, newSong], scripture, meditation);
   };
 
   const handleUpdateSong = (id: string, field: keyof Song, value: string) => {
     const updatedSongs = songs.map(song => song.id === id ? { ...song, [field]: value } : song);
-    saveSongsToDB(updatedSongs);
+    saveToDB(updatedSongs, scripture, meditation);
+  };
+
+  // 갤러리에서 이미지 파일 선택 시 Base64로 변환하여 저장
+  const handleImageUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleUpdateSong(id, 'sheetUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDeleteSong = (id: string) => {
@@ -146,7 +168,7 @@ export default function App() {
     if (window.confirm('이 곡을 삭제하시겠습니까?')) {
       const updatedSongs = songs.filter(song => song.id !== id);
       if (selectedSongTab >= updatedSongs.length) setSelectedSongTab(0);
-      saveSongsToDB(updatedSongs);
+      saveToDB(updatedSongs, scripture, meditation);
     }
   };
 
@@ -177,11 +199,11 @@ export default function App() {
 
   const createRoom = async () => {
     if (!user) return;
-    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
+    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ').charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
     setRoomCode(code);
 
-    const defaultSongs = [{ id: Date.now().toString(), title: '첫 번째 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '', scripture: '', meditation: '' }];
-    await set(ref(db, `rooms/${code}`), { code, name: roomName, day: selectedDay, time: selectedTime, createdAt: new Date().toISOString(), songs: defaultSongs });
+    const defaultSongs = [{ id: Date.now().toString(), title: '첫 번째 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
+    await set(ref(db, `rooms/${code}`), { code, name: roomName, day: selectedDay, time: selectedTime, createdAt: new Date().toISOString(), songs: defaultSongs, scripture: '', meditation: '' });
     await set(ref(db, `users/${user.uid}/history/${code}`), { code, name: roomName, role: 'leader', lastAccessed: new Date().toISOString() });
     
     setCurrentView('admin_dash');
@@ -366,7 +388,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 워크스페이스 */}
           {currentView === 'my_hub' && (
             <div className="max-w-4xl mx-auto w-full space-y-8">
               <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 border-b border-slate-200 pb-6">
@@ -401,7 +422,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 방 만들기 / 참여하기 선택 (두 카드 모두 동일한 보라색 인디고 톤앤매너 적용) */}
           {currentView === 'home' && (
             <div className="max-w-4xl mx-auto my-12 grid grid-cols-1 md:grid-cols-2 gap-6">
               <button onClick={() => setCurrentView('create_room')} className="p-8 bg-indigo-600 text-white rounded-3xl shadow-xl hover:bg-indigo-700 transition text-left space-y-4 flex flex-col justify-between">
@@ -421,7 +441,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 방 개설 상세 설정 */}
           {currentView === 'create_room' && (
             <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 border border-slate-200 shadow-xl space-y-6">
               <div>
@@ -457,6 +476,7 @@ export default function App() {
             </div>
           )}
 
+          {/* 인도자 관리 콘솔 (탭 분리 적용) */}
           {currentView === 'admin_dash' && (
             <div className="space-y-6 pb-20">
               <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between gap-6">
@@ -471,34 +491,91 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-8">
-                <div>
-                  <h3 className="text-xl font-black text-slate-900">📝 콘티 곡 상세 에디터</h3>
-                  <p className="text-xs text-slate-500 mt-1">수정 즉시 실시간으로 단원들 화면에 ⚡ 동기화됩니다.</p>
-                </div>
-                <button onClick={handleAddSong} className="px-5 py-3 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 transition flex flex-col items-center">
-                  <span className="text-sm font-black">+ 🎵 새로운 곡 추가</span>
+              {/* 상단 탭 전환 (콘티 곡 관리 vs 예배 말씀 및 묵상 노트) */}
+              <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-md mx-auto my-4">
+                <button 
+                  onClick={() => setAdminTab('songs')} 
+                  className={`flex-1 py-3 rounded-xl text-xs font-black transition ${adminTab === 'songs' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  🎵 콘티 곡 관리 ({songs.length})
+                </button>
+                <button 
+                  onClick={() => setAdminTab('note')} 
+                  className={`flex-1 py-3 rounded-xl text-xs font-black transition ${adminTab === 'note' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  📖 예배 말씀 및 묵상 노트
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {songs.map((song, idx) => (
-                  <div key={song.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center border-b pb-3">
-                      <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">🎹 {idx + 1}번 곡 설정</span>
-                      <button onClick={() => handleDeleteSong(song.id)} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">🗑️ 삭제</button>
+              {adminTab === 'songs' ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900">📝 콘티 곡 상세 에디터</h3>
+                      <p className="text-xs text-slate-500 mt-1">수정 즉시 실시간으로 단원들 화면에 ⚡ 동기화됩니다.</p>
                     </div>
-                    <div className="space-y-3">
-                      <div><label className="text-[10px] font-bold text-slate-400">🏷️ 곡 제목</label><input type="text" value={song.title} onChange={(e) => handleUpdateSong(song.id, 'title', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">🔄 송폼 (곡의 흐름)</label><input type="text" value={song.form} onChange={(e) => handleUpdateSong(song.id, 'form', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">🎬 유튜브 영상 URL</label><input type="text" value={song.youtubeUrl} onChange={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://youtube.com/..." /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">📄 악보 이미지 URL</label><input type="text" value={song.sheetUrl} onChange={(e) => handleUpdateSong(song.id, 'sheetUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://..." /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">📖 관련 말씀 구절</label><input type="text" value={song.scripture} onChange={(e) => handleUpdateSong(song.id, 'scripture', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" /></div>
-                      <div><label className="text-[10px] font-bold text-slate-400">💭 인도자 묵상 노트</label><textarea rows={2} value={song.meditation} onChange={(e) => handleUpdateSong(song.id, 'meditation', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" /></div>
+                    <button onClick={handleAddSong} className="px-5 py-3 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 transition flex items-center space-x-1">
+                      <span className="text-sm font-black">+ 🎵 새로운 곡 추가</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {songs.map((song, idx) => (
+                      <div key={song.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center border-b pb-3">
+                          <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">🎹 {idx + 1}번 곡 설정</span>
+                          <button onClick={() => handleDeleteSong(song.id)} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">🗑️ 삭제</button>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400">🏷️ 곡 제목</label>
+                            <input type="text" value={song.title} onChange={(e) => handleUpdateSong(song.id, 'title', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400">🔄 송폼 (곡의 흐름)</label>
+                            <input type="text" value={song.form} onChange={(e) => handleUpdateSong(song.id, 'form', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400">🎬 유튜브 영상 URL</label>
+                            <input type="text" value={song.youtubeUrl} onChange={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://youtube.com/..." />
+                          </div>
+                          
+                          {/* 악보 이미지 갤러리 업로드 */}
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 block mb-1">📄 악보 이미지 (스마트폰 갤러리에서 가져오기)</label>
+                            <div className="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                              <input type="file" accept="image/*" onChange={(e) => handleImageUpload(song.id, e)} className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer" />
+                            </div>
+                            {song.sheetUrl && (
+                              <div className="mt-2 relative w-full h-32 bg-slate-100 rounded-xl overflow-hidden border">
+                                <img src={song.sheetUrl} alt="악보 미리보기" className="w-full h-full object-contain" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* 예배 말씀 및 묵상 노트 전용 탭 */
+                <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">📖 예배 말씀 및 인도자 묵상 노트 설정</h3>
+                    <p className="text-xs text-slate-500 mt-1">이번 주 찬양 예배와 관련된 말씀과 묵상 내용을 단원들과 공유합니다.</p>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-bold text-indigo-600 block mb-1">📖 이번 주 말씀 구절</label>
+                      <input type="text" value={scripture} onChange={(e) => saveToDB(songs, e.target.value, meditation)} placeholder="예: 시편 100:1-5" className="w-full p-4 bg-slate-50 border rounded-xl text-sm font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-indigo-600 block mb-1">💭 인도자 묵상 노트</label>
+                      <textarea rows={6} value={meditation} onChange={(e) => saveToDB(songs, scripture, e.target.value)} placeholder="이번 주 찬양 콘티의 방향성과 묵상 나눔을 적어주세요." className="w-full p-4 bg-slate-50 border rounded-xl text-sm leading-relaxed" />
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
 
               <div className="pt-8 border-t border-slate-200">
                 <button onClick={() => setCurrentView('member_dash')} className="w-full py-5 bg-slate-100 text-slate-700 rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-200 transition flex flex-col items-center">
@@ -509,6 +586,7 @@ export default function App() {
             </div>
           )}
 
+          {/* 단원 뷰 (실시간 연동) */}
           {currentView === 'member_dash' && (
             <div className="space-y-6 pb-20">
               <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-8 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between gap-4">
@@ -517,6 +595,11 @@ export default function App() {
                   <h2 className="text-3xl font-black mt-3">{roomName}</h2>
                   <p className="text-sm text-indigo-100 mt-2">🧑‍🎤 본인 파트: {profilePart} / ⏰ 연습: {selectedDay}요일 {selectedTime}</p>
                 </div>
+                {user?.uid && (
+                  <button onClick={() => setCurrentView('admin_dash')} className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold self-start transition">
+                    👑 인도자 에디터로 돌아가기
+                  </button>
+                )}
               </div>
 
               {songs.length > 0 ? (
@@ -537,7 +620,7 @@ export default function App() {
                       </div>
                       <div className="bg-slate-50 rounded-2xl border border-slate-200 min-h-[400px] flex items-center justify-center p-4">
                         {songs[selectedSongTab]?.sheetUrl ? (
-                          <img src={songs[selectedSongTab].sheetUrl} alt="악보 이미지" className="w-full object-contain rounded-xl shadow-sm" />
+                          <img src={songs[selectedSongTab].sheetUrl} alt="악보 이미지" className="w-full object-contain rounded-xl shadow-sm max-h-[600px]" />
                         ) : (
                           <div className="text-center text-slate-400">
                             <div className="text-4xl mb-2">🎵</div>
@@ -563,9 +646,9 @@ export default function App() {
                       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
                         <h4 className="text-[11px] font-black text-slate-400 uppercase">📖 예배 말씀 및 리더 묵상</h4>
                         <div className="space-y-3 text-sm">
-                          {songs[selectedSongTab]?.scripture && <p className="font-black text-indigo-600 bg-indigo-50 p-3 rounded-xl">{songs[selectedSongTab].scripture}</p>}
-                          {songs[selectedSongTab]?.meditation ? (
-                            <p className="font-medium text-slate-700 whitespace-pre-wrap leading-relaxed p-2">{songs[selectedSongTab].meditation}</p>
+                          {scripture && <p className="font-black text-indigo-600 bg-indigo-50 p-3 rounded-xl">{scripture}</p>}
+                          {meditation ? (
+                            <p className="font-medium text-slate-700 whitespace-pre-wrap leading-relaxed p-2">{meditation}</p>
                           ) : (
                             <p className="text-xs font-bold text-slate-400 p-4 bg-slate-50 rounded-xl text-center">등록된 묵상이 없습니다.</p>
                           )}
