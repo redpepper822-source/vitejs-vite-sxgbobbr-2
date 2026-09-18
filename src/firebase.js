@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getAuth } from "firebase/auth"; // 로그인 기능 추가
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5983sG69Szb_Mx8gM9tqc_bqpvj9EZ1U",
@@ -14,3 +15,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
+export const auth = getAuth(app); // 앱 전체에서 auth를 사용할 수 있도록 내보냄
