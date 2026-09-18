@@ -252,7 +252,7 @@ export default function App() {
 
   const createRoom = async () => {
     if (!user) return;
-    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
+    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ').charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
     setRoomCode(code);
 
     const today = new Date();
@@ -579,7 +579,6 @@ export default function App() {
 
           {currentView === 'admin_dash' && (
             <div className="space-y-6 pb-20">
-              {/* 모바일 화면에서 줄바꿈 및 가독성이 완벽하게 보장되도록 수정된 인도자 배너 */}
               <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-stretch gap-6 relative overflow-hidden">
                 <div className="relative z-10 space-y-3">
                   <div className="inline-block bg-indigo-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
@@ -587,7 +586,7 @@ export default function App() {
                   </div>
                   <h1 className="text-2xl md:text-3xl font-black">{roomName}</h1>
                   <div className="inline-flex items-center space-x-2 bg-indigo-700 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md">
-                    <span>⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화 ⚡)</span>
+                    <span>⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화)</span>
                   </div>
                 </div>
                 <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 md:min-w-[200px] text-center flex flex-col justify-center relative z-10">
@@ -596,7 +595,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 모바일 환경에서 탭들이 찌그러지지 않고 나란히 정렬되도록 수정된 탭바 */}
               <div className="grid grid-cols-3 gap-1 bg-slate-200 p-1.5 rounded-2xl max-w-xl mx-auto my-4">
                 <button 
                   onClick={() => setAdminTab('songs')} 
@@ -640,15 +638,31 @@ export default function App() {
                         <div className="space-y-3">
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🏷️ 곡 제목</label>
-                            <input type="text" value={song.title} onChange={(e) => handleUpdateSong(song.id, 'title', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" />
+                            <input 
+                              type="text" 
+                              defaultValue={song.title} 
+                              onBlur={(e) => handleUpdateSong(song.id, 'title', e.target.value)} 
+                              className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" 
+                            />
                           </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🔄 송폼 (곡의 흐름)</label>
-                            <input type="text" value={song.form} onChange={(e) => handleUpdateSong(song.id, 'form', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" />
+                            <input 
+                              type="text" 
+                              defaultValue={song.form} 
+                              onBlur={(e) => handleUpdateSong(song.id, 'form', e.target.value)} 
+                              className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" 
+                            />
                           </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🎬 유튜브 영상 URL</label>
-                            <input type="text" value={song.youtubeUrl} onChange={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl text-xs" placeholder="https://youtube.com/..." />
+                            <input 
+                              type="text" 
+                              defaultValue={song.youtubeUrl} 
+                              onBlur={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} 
+                              className="w-full p-3 bg-slate-50 border rounded-xl text-xs" 
+                              placeholder="https://youtube.com/..." 
+                            />
                           </div>
                           
                           <div>
@@ -677,10 +691,11 @@ export default function App() {
                     {roomVolunteers.map((v) => (
                       <div key={v.id} className="flex items-center space-x-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                         <span className="w-32 text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-2 rounded-xl text-center">{v.part}</span>
+                        {/* 모바일 한글 입력 씹힘 방지를 위해 onBlur 적용 */}
                         <input 
                           type="text" 
-                          value={v.name} 
-                          onChange={(e) => handleUpdateVolunteerName(v.id, e.target.value)} 
+                          defaultValue={v.name} 
+                          onBlur={(e) => handleUpdateVolunteerName(v.id, e.target.value)} 
                           placeholder="봉사자 이름 입력" 
                           className="flex-1 p-2 bg-white border rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500" 
                         />
@@ -697,11 +712,23 @@ export default function App() {
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs font-bold text-indigo-600 block mb-1">📖 이번 주 말씀 구절</label>
-                      <input type="text" value={scripture} onChange={(e) => saveToDB(songs, roomVolunteers, e.target.value, meditation)} placeholder="예: 시편 100:1-5" className="w-full p-4 bg-slate-50 border rounded-xl text-sm font-bold" />
+                      <input 
+                        type="text" 
+                        defaultValue={scripture} 
+                        onBlur={(e) => saveToDB(songs, roomVolunteers, e.target.value, meditation)} 
+                        placeholder="예: 시편 100:1-5" 
+                        className="w-full p-4 bg-slate-50 border rounded-xl text-sm font-bold" 
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-indigo-600 block mb-1">💭 인도자 묵상 노트</label>
-                      <textarea rows={6} value={meditation} onChange={(e) => saveToDB(songs, roomVolunteers, scripture, e.target.value)} placeholder="이번 주 찬양 콘티의 방향성과 묵상 나눔을 적어주세요." className="w-full p-4 bg-slate-50 border rounded-xl text-sm leading-relaxed" />
+                      <textarea 
+                        rows={6} 
+                        defaultValue={meditation} 
+                        onBlur={(e) => saveToDB(songs, roomVolunteers, scripture, e.target.value)} 
+                        placeholder="이번 주 찬양 콘티의 방향성과 묵상 나눔을 적어주세요." 
+                        className="w-full p-4 bg-slate-50 border rounded-xl text-sm leading-relaxed" 
+                      />
                     </div>
                   </div>
                 </div>
@@ -709,7 +736,7 @@ export default function App() {
 
               <div className="pt-8 border-t border-slate-200">
                 <button onClick={() => setCurrentView('member_dash')} className="w-full py-5 bg-slate-100 text-slate-700 rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-200 transition flex flex-col items-center">
-                  <span className="text-base font-black">👁️ 단원 앱 화면 미리보기</span>
+                  <span className="text-base font-black">🙉 단원 앱 화면 미리보기</span>
                   <span className="text-[11px] font-bold text-slate-500">단원들의 기기에서 어떻게 보이는지 직접 확인합니다</span>
                 </button>
               </div>
