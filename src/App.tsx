@@ -24,6 +24,64 @@ interface RoomHistory {
   lastAccessed: string;
 }
 
+// -------------------------------------------------------------
+// 🔥 타자 씹힘 방지용 커스텀 입력 컴포넌트 (핵심 해결책)
+// 타이핑 중에는 서버 동기화를 막고, 포커스가 풀릴 때만 저장합니다.
+// -------------------------------------------------------------
+const DBInput = ({ value, onSave, className, placeholder, type = "text" }: { value: string, onSave: (v: string) => void, className?: string, placeholder?: string, type?: string }) => {
+  const [localVal, setLocalVal] = useState(value || '');
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    // 입력 중(포커스 상태)이 아닐 때만 외부(서버) 데이터로 업데이트하여 타자 씹힘 방지
+    if (!isFocused) {
+      setLocalVal(value || '');
+    }
+  }, [value, isFocused]);
+
+  return (
+    <input
+      type={type}
+      value={localVal}
+      onFocus={() => setIsFocused(true)}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={() => {
+        setIsFocused(false);
+        if (localVal !== value) onSave(localVal);
+      }}
+      className={className}
+      placeholder={placeholder}
+    />
+  );
+};
+
+const DBTextarea = ({ value, onSave, className, placeholder, rows = 3 }: { value: string, onSave: (v: string) => void, className?: string, placeholder?: string, rows?: number }) => {
+  const [localVal, setLocalVal] = useState(value || '');
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalVal(value || '');
+    }
+  }, [value, isFocused]);
+
+  return (
+    <textarea
+      rows={rows}
+      value={localVal}
+      onFocus={() => setIsFocused(true)}
+      onChange={(e) => setLocalVal(e.target.value)}
+      onBlur={() => {
+        setIsFocused(false);
+        if (localVal !== value) onSave(localVal);
+      }}
+      className={className}
+      placeholder={placeholder}
+    />
+  );
+};
+// -------------------------------------------------------------
+
 export default function App() {
   const [currentView, setCurrentView] = useState<string>('login');
   const [isLoginMode, setIsLoginMode] = useState<boolean>(true); 
@@ -80,7 +138,7 @@ export default function App() {
   const privacyText = `1. 수집하는 개인정보: 이메일, 비밀번호, 닉네임, 주 세션 파트
 2. 수집 및 이용 목적: 회원 식별, 합주 방 개설 및 참여 기록 유지, 실시간 콘티 동기화
 3. 보유 및 이용 기간: 회원 탈퇴 시 즉시 영구 파기됩니다.
-4. 동의 거부 권리: 동의를 거부할 수 있으나 거부 시 서비스 이용이 제한됩니다. (내용을 끝까지 읽고 동의해주세요.)`;
+4. 동의 거부 권리: 동의 거부를 할 수 있으나 거부 시 서비스 이용이 제한됩니다. (내용을 끝까지 읽고 동의해주세요.)`;
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('ensemble_saved_email');
@@ -252,7 +310,7 @@ export default function App() {
 
   const createRoom = async () => {
     if (!user) return;
-    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ').charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
+    const code = `${Array.from({length: 3}, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.charAt(Math.floor(Math.random()*26))).join('')}-${Math.floor(100+Math.random()*900)}`;
     setRoomCode(code);
 
     const today = new Date();
@@ -586,7 +644,7 @@ export default function App() {
                   </div>
                   <h1 className="text-2xl md:text-3xl font-black">{roomName}</h1>
                   <div className="inline-flex items-center space-x-2 bg-indigo-700 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md">
-                    <span>⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화)</span>
+                    <span>⏰ 정기 연습: 매주 {selectedDay}요일 {selectedTime} (매주 월요일 초기화 ⚡)</span>
                   </div>
                 </div>
                 <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 md:min-w-[200px] text-center flex flex-col justify-center relative z-10">
@@ -621,7 +679,7 @@ export default function App() {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <h3 className="text-xl font-black text-slate-900">📝 콘티 곡 상세 에디터</h3>
-                      <p className="text-xs text-slate-500 mt-1">수정 즉시 실시간으로 단원들 화면에 ⚡ 동기화됩니다.</p>
+                      <p className="text-xs text-slate-500 mt-1">입력 완료 시(화면 터치) 실시간으로 단원들 화면에 ⚡ 동기화됩니다.</p>
                     </div>
                     <button onClick={handleAddSong} className="px-5 py-3 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 transition flex items-center space-x-1">
                       <span className="text-sm font-black">+ 🎵 새로운 곡 추가</span>
@@ -638,28 +696,26 @@ export default function App() {
                         <div className="space-y-3">
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🏷️ 곡 제목</label>
-                            <input 
-                              type="text" 
-                              defaultValue={song.title} 
-                              onBlur={(e) => handleUpdateSong(song.id, 'title', e.target.value)} 
+                            {/* DBInput 교체 적용 */}
+                            <DBInput 
+                              value={song.title} 
+                              onSave={(val: string) => handleUpdateSong(song.id, 'title', val)} 
                               className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" 
                             />
                           </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🔄 송폼 (곡의 흐름)</label>
-                            <input 
-                              type="text" 
-                              defaultValue={song.form} 
-                              onBlur={(e) => handleUpdateSong(song.id, 'form', e.target.value)} 
+                            <DBInput 
+                              value={song.form} 
+                              onSave={(val: string) => handleUpdateSong(song.id, 'form', val)} 
                               className="w-full p-3 bg-slate-50 border rounded-xl text-sm font-bold" 
                             />
                           </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🎬 유튜브 영상 URL</label>
-                            <input 
-                              type="text" 
-                              defaultValue={song.youtubeUrl} 
-                              onBlur={(e) => handleUpdateSong(song.id, 'youtubeUrl', e.target.value)} 
+                            <DBInput 
+                              value={song.youtubeUrl} 
+                              onSave={(val: string) => handleUpdateSong(song.id, 'youtubeUrl', val)} 
                               className="w-full p-3 bg-slate-50 border rounded-xl text-xs" 
                               placeholder="https://youtube.com/..." 
                             />
@@ -691,11 +747,10 @@ export default function App() {
                     {roomVolunteers.map((v) => (
                       <div key={v.id} className="flex items-center space-x-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                         <span className="w-32 text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-2 rounded-xl text-center">{v.part}</span>
-                        {/* 모바일 한글 입력 씹힘 방지를 위해 onBlur 적용 */}
-                        <input 
-                          type="text" 
-                          defaultValue={v.name} 
-                          onBlur={(e) => handleUpdateVolunteerName(v.id, e.target.value)} 
+                        {/* DBInput 적용: 타자 씹힘 원천 봉쇄 */}
+                        <DBInput 
+                          value={v.name} 
+                          onSave={(val: string) => handleUpdateVolunteerName(v.id, val)} 
                           placeholder="봉사자 이름 입력" 
                           className="flex-1 p-2 bg-white border rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500" 
                         />
@@ -712,20 +767,19 @@ export default function App() {
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs font-bold text-indigo-600 block mb-1">📖 이번 주 말씀 구절</label>
-                      <input 
-                        type="text" 
-                        defaultValue={scripture} 
-                        onBlur={(e) => saveToDB(songs, roomVolunteers, e.target.value, meditation)} 
+                      <DBInput 
+                        value={scripture} 
+                        onSave={(val: string) => saveToDB(songs, roomVolunteers, val, meditation)} 
                         placeholder="예: 시편 100:1-5" 
                         className="w-full p-4 bg-slate-50 border rounded-xl text-sm font-bold" 
                       />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-indigo-600 block mb-1">💭 인도자 묵상 노트</label>
-                      <textarea 
+                      <DBTextarea 
                         rows={6} 
-                        defaultValue={meditation} 
-                        onBlur={(e) => saveToDB(songs, roomVolunteers, scripture, e.target.value)} 
+                        value={meditation} 
+                        onSave={(val: string) => saveToDB(songs, roomVolunteers, scripture, val)} 
                         placeholder="이번 주 찬양 콘티의 방향성과 묵상 나눔을 적어주세요." 
                         className="w-full p-4 bg-slate-50 border rounded-xl text-sm leading-relaxed" 
                       />
