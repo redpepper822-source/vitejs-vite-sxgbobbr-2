@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, deleteUser } from 'firebase/auth';
-import { ref, set, get, onValue, remove, runTransaction } from 'firebase/database'; // runTransaction 추가됨
+import { ref, set, get, onValue, remove, runTransaction } from 'firebase/database';
 
 interface Song {
   id: string;
@@ -25,8 +25,7 @@ interface RoomHistory {
 }
 
 // -------------------------------------------------------------
-// 🔥 1. 타자 씹힘 방지용 커스텀 입력 컴포넌트 (절대 유지해야 함)
-// 사용자가 입력 중일 때는 서버 동기화를 차단하여 글자 씹힘 방지
+// 🔥 1. 타자 씹힘 방지용 커스텀 입력 컴포넌트
 // -------------------------------------------------------------
 const DBInput = ({ value, onSave, className, placeholder, type = "text" }: { value: string, onSave: (v: string) => void, className?: string, placeholder?: string, type?: string }) => {
   const [localVal, setLocalVal] = useState(value || '');
@@ -126,6 +125,7 @@ export default function App() {
   
   const [adminTab, setAdminTab] = useState<'songs' | 'volunteers' | 'note'>('songs'); 
   const [selectedSongTab, setSelectedSongTab] = useState<number>(0); 
+  const [isPdfGenerating, setIsPdfGenerating] = useState<boolean>(false);
 
   const partsList = ['보컬', '어쿠스틱 기타', '일렉 기타', '베이스', '드럼', '메인 건반', '세컨 건반', '엔지니어/미디어', '인도자'];
   const daysOfWeek = ['월', '화', '수', '목', '금', '토', '일'];
@@ -182,7 +182,7 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
-  // 🔥 2. 데이터 안전 동기화 및 월요일 자동 초기화 (runTransaction 적용)
+  // 🔥 2. 데이터 안전 동기화 (runTransaction 월요일 초기화)
   // -------------------------------------------------------------
   useEffect(() => {
     let unsubscribeRoom = () => {};
@@ -198,11 +198,9 @@ export default function App() {
           const diffToMonday = today.getDate() - dayOfWeekIdx + (dayOfWeekIdx === 0 ? -6 : 1);
           const mondayDate = new Date(today.setDate(diffToMonday)).toISOString().split('T')[0];
 
-          // 방에 처음 진입하거나 월요일이 지났을 때 트랜잭션으로 안전하게 초기화
           if (data.lastResetDate !== mondayDate) {
             runTransaction(roomRef, (currentData) => {
               if (currentData) {
-                 // 기존 데이터를 날리지 않고 뼈대만 초기화
                  currentData.songs = [{ id: Date.now().toString(), title: '새로운 콘티 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
                  currentData.volunteers = (currentData.volunteers || []).map((v: Volunteer) => ({ ...v, name: '' }));
                  currentData.scripture = '';
@@ -211,7 +209,7 @@ export default function App() {
               }
               return currentData;
             });
-            return; // 트랜잭션 진행 중에는 상태 업데이트 보류
+            return;
           }
 
           setRoomName(data.name || '합주 방');
@@ -230,12 +228,10 @@ export default function App() {
   }, [currentView, roomCode]);
 
   const saveToDB = async (newSongs: Song[], newVolunteers: Volunteer[], newScripture: string, newMeditation: string) => {
-    // 로컬 상태 즉시 반영
     setSongs(newSongs);
     setRoomVolunteers(newVolunteers);
     setScripture(newScripture);
     setMeditation(newMeditation);
-    // 서버 비동기 반영
     if (roomCode) {
       await set(ref(db, `rooms/${roomCode}/songs`), newSongs);
       await set(ref(db, `rooms/${roomCode}/volunteers`), newVolunteers);
@@ -254,7 +250,6 @@ export default function App() {
     saveToDB(updatedSongs, roomVolunteers, scripture, meditation);
   };
 
-  // Base64 인코딩 유지 (가장 빠르고 비용이 들지 않음)
   const handleImageUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -290,7 +285,7 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
-  // 🔥 3. 악보 다운로드 기능 (일괄 및 개별) 복구
+  // 🔥 3. 악보 다운로드 기능 (전체 PDF 병합 & 개별 다운로드)
   // -------------------------------------------------------------
   const handleDownloadIndividual = (song: Song) => {
     if (!song.sheetUrl) return alert('등록된 악보가 없습니다.');
@@ -302,20 +297,59 @@ export default function App() {
     document.body.removeChild(a);
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAllAsPDF = async () => {
     const songsWithSheet = songs.filter(s => s.sheetUrl);
-    if (songsWithSheet.length === 0) return alert('다운로드할 악보 이미지가 하나도 없습니다.');
+    if (songsWithSheet.length === 0) return alert('다운로드할 악보 이미지가 없습니다.');
+
+    setIsPdfGenerating(true);
     
-    songsWithSheet.forEach((song, index) => {
-      setTimeout(() => {
-        const a = document.createElement('a');
-        a.href = song.sheetUrl;
-        a.download = `${index + 1}_${song.title}_악보.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }, index * 300);
-    });
+    try {
+      // jspdf 모듈 동적 로드 (사전에 npm install jspdf 필수)
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      for (let i = 0; i < songsWithSheet.length; i++) {
+        if (i > 0) doc.addPage();
+        const song = songsWithSheet[i];
+
+        // 이미지 로딩 대기
+        const img = new Image();
+        img.src = song.sheetUrl;
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve; // 에러가 나도 진행되도록
+        });
+
+        // A4 비율에 맞춰서 이미지 중앙 정렬 및 리사이징
+        const imgRatio = img.width / img.height;
+        const pageRatio = pageWidth / pageHeight;
+
+        let finalWidth, finalHeight;
+        if (imgRatio > pageRatio) {
+          finalWidth = pageWidth;
+          finalHeight = pageWidth / imgRatio;
+        } else {
+          finalHeight = pageHeight;
+          finalWidth = pageHeight * imgRatio;
+        }
+
+        const x = (pageWidth - finalWidth) / 2;
+        const y = (pageHeight - finalHeight) / 2;
+
+        doc.addImage(img, 'JPEG', x, y, finalWidth, finalHeight);
+      }
+
+      // 묶은 PDF 파일 다운로드 실행
+      doc.save(`${roomName}_전체악보.pdf`);
+
+    } catch (error) {
+      console.error('PDF 변환 중 오류:', error);
+      alert('PDF 생성에 실패했습니다. (터미널에서 npm install jspdf 를 실행했는지 확인해주세요!)');
+    } finally {
+      setIsPdfGenerating(false);
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -855,8 +889,9 @@ export default function App() {
                         </button>
                       ))}
                     </div>
-                    <button onClick={handleDownloadAll} className="w-full sm:w-auto px-5 py-3 bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black shadow-sm hover:bg-indigo-200 transition whitespace-nowrap">
-                      📥 전체 악보 일괄 다운로드
+                    {/* 전체 악보 PDF 일괄 병합 버튼 */}
+                    <button onClick={handleDownloadAllAsPDF} disabled={isPdfGenerating} className="w-full sm:w-auto px-5 py-3 bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black shadow-sm hover:bg-indigo-200 transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isPdfGenerating ? '⏳ PDF 병합 중...' : '📥 전체 악보를 1개의 PDF로 다운로드'}
                     </button>
                   </div>
 
@@ -868,7 +903,7 @@ export default function App() {
                           <span className="text-xs font-bold text-indigo-600 bg-white px-3 py-1.5 rounded-full shadow-sm">🔄 송폼: {songs[selectedSongTab]?.form}</span>
                           {songs[selectedSongTab]?.sheetUrl && (
                             <button onClick={() => handleDownloadIndividual(songs[selectedSongTab])} className="text-xs font-black text-white bg-indigo-600 px-3 py-1.5 rounded-full shadow-sm hover:bg-indigo-700 transition">
-                              ⬇️ 개별 다운로드
+                              ⬇️ 이 곡만 이미지 저장
                             </button>
                           )}
                         </div>
