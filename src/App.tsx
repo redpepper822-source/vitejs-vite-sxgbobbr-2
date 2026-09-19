@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, deleteUser } from 'firebase/auth';
-import { ref, set, get, onValue, remove } from 'firebase/database';
+import { ref, set, get, onValue, remove, runTransaction } from 'firebase/database'; // runTransaction 추가됨
 
 interface Song {
   id: string;
@@ -25,7 +25,8 @@ interface RoomHistory {
 }
 
 // -------------------------------------------------------------
-// 🔥 타자 씹힘 방지용 커스텀 입력 컴포넌트
+// 🔥 1. 타자 씹힘 방지용 커스텀 입력 컴포넌트 (절대 유지해야 함)
+// 사용자가 입력 중일 때는 서버 동기화를 차단하여 글자 씹힘 방지
 // -------------------------------------------------------------
 const DBInput = ({ value, onSave, className, placeholder, type = "text" }: { value: string, onSave: (v: string) => void, className?: string, placeholder?: string, type?: string }) => {
   const [localVal, setLocalVal] = useState(value || '');
@@ -180,33 +181,37 @@ export default function App() {
     });
   };
 
+  // -------------------------------------------------------------
+  // 🔥 2. 데이터 안전 동기화 및 월요일 자동 초기화 (runTransaction 적용)
+  // -------------------------------------------------------------
   useEffect(() => {
     let unsubscribeRoom = () => {};
     if ((currentView === 'admin_dash' || currentView === 'member_dash') && roomCode) {
       const roomRef = ref(db, `rooms/${roomCode}`);
+      
       const unsub = onValue(roomRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
           
-          const lastResetDate = data.lastResetDate || '';
           const today = new Date();
           const dayOfWeekIdx = today.getDay();
           const diffToMonday = today.getDate() - dayOfWeekIdx + (dayOfWeekIdx === 0 ? -6 : 1);
           const mondayDate = new Date(today.setDate(diffToMonday)).toISOString().split('T')[0];
 
-          if (lastResetDate !== mondayDate) {
-            const resetSongs = [{ id: Date.now().toString(), title: '새로운 콘티 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
-            const resetVolunteers = (data.volunteers || []).map((v: Volunteer) => ({ ...v, name: '' }));
-            
-            set(roomRef, {
-              ...data,
-              songs: resetSongs,
-              volunteers: resetVolunteers,
-              scripture: '',
-              meditation: '',
-              lastResetDate: mondayDate
+          // 방에 처음 진입하거나 월요일이 지났을 때 트랜잭션으로 안전하게 초기화
+          if (data.lastResetDate !== mondayDate) {
+            runTransaction(roomRef, (currentData) => {
+              if (currentData) {
+                 // 기존 데이터를 날리지 않고 뼈대만 초기화
+                 currentData.songs = [{ id: Date.now().toString(), title: '새로운 콘티 곡', form: 'Verse - Chorus', sheetUrl: '', youtubeUrl: '' }];
+                 currentData.volunteers = (currentData.volunteers || []).map((v: Volunteer) => ({ ...v, name: '' }));
+                 currentData.scripture = '';
+                 currentData.meditation = '';
+                 currentData.lastResetDate = mondayDate;
+              }
+              return currentData;
             });
-            return;
+            return; // 트랜잭션 진행 중에는 상태 업데이트 보류
           }
 
           setRoomName(data.name || '합주 방');
@@ -225,10 +230,12 @@ export default function App() {
   }, [currentView, roomCode]);
 
   const saveToDB = async (newSongs: Song[], newVolunteers: Volunteer[], newScripture: string, newMeditation: string) => {
+    // 로컬 상태 즉시 반영
     setSongs(newSongs);
     setRoomVolunteers(newVolunteers);
     setScripture(newScripture);
     setMeditation(newMeditation);
+    // 서버 비동기 반영
     if (roomCode) {
       await set(ref(db, `rooms/${roomCode}/songs`), newSongs);
       await set(ref(db, `rooms/${roomCode}/volunteers`), newVolunteers);
@@ -247,6 +254,7 @@ export default function App() {
     saveToDB(updatedSongs, roomVolunteers, scripture, meditation);
   };
 
+  // Base64 인코딩 유지 (가장 빠르고 비용이 들지 않음)
   const handleImageUpload = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -282,13 +290,12 @@ export default function App() {
   };
 
   // -------------------------------------------------------------
-  // 🔥 다운로드 기능 (개별 다운로드 & 전체 일괄 다운로드)
+  // 🔥 3. 악보 다운로드 기능 (일괄 및 개별) 복구
   // -------------------------------------------------------------
   const handleDownloadIndividual = (song: Song) => {
     if (!song.sheetUrl) return alert('등록된 악보가 없습니다.');
     const a = document.createElement('a');
     a.href = song.sheetUrl;
-    // 다운로드 될 파일 이름 지정 (예: 곡제목_악보.jpg)
     a.download = `${song.title}_악보.jpg`; 
     document.body.appendChild(a);
     a.click();
@@ -299,7 +306,6 @@ export default function App() {
     const songsWithSheet = songs.filter(s => s.sheetUrl);
     if (songsWithSheet.length === 0) return alert('다운로드할 악보 이미지가 하나도 없습니다.');
     
-    // 브라우저가 다중 다운로드를 차단하지 않도록 0.3초(300ms) 간격으로 순차적 다운로드 실행
     songsWithSheet.forEach((song, index) => {
       setTimeout(() => {
         const a = document.createElement('a');
@@ -311,7 +317,6 @@ export default function App() {
       }, index * 300);
     });
   };
-  // -------------------------------------------------------------
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -842,7 +847,6 @@ export default function App() {
 
               {songs.length > 0 ? (
                 <>
-                  {/* 곡 목록(탭) 및 전체 악보 다운로드 버튼 */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide w-full sm:w-auto flex-1">
                       {songs.map((song, idx) => (
@@ -851,7 +855,6 @@ export default function App() {
                         </button>
                       ))}
                     </div>
-                    {/* 일괄 다운로드 버튼 */}
                     <button onClick={handleDownloadAll} className="w-full sm:w-auto px-5 py-3 bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black shadow-sm hover:bg-indigo-200 transition whitespace-nowrap">
                       📥 전체 악보 일괄 다운로드
                     </button>
@@ -859,13 +862,10 @@ export default function App() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
                     <div className="lg:col-span-2 bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm space-y-4">
-                      
-                      {/* 개별 곡 상단 배너 및 개별 다운로드 버튼 */}
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-indigo-50 p-4 rounded-2xl gap-3">
                         <h3 className="text-lg font-black text-indigo-900">📄 {songs[selectedSongTab]?.title}</h3>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-indigo-600 bg-white px-3 py-1.5 rounded-full shadow-sm">🔄 송폼: {songs[selectedSongTab]?.form}</span>
-                          {/* 개별 다운로드 버튼 */}
                           {songs[selectedSongTab]?.sheetUrl && (
                             <button onClick={() => handleDownloadIndividual(songs[selectedSongTab])} className="text-xs font-black text-white bg-indigo-600 px-3 py-1.5 rounded-full shadow-sm hover:bg-indigo-700 transition">
                               ⬇️ 개별 다운로드
