@@ -25,15 +25,13 @@ interface RoomHistory {
 }
 
 // -------------------------------------------------------------
-// 🔥 타자 씹힘 방지용 커스텀 입력 컴포넌트 (핵심 해결책)
-// 타이핑 중에는 서버 동기화를 막고, 포커스가 풀릴 때만 저장합니다.
+// 🔥 타자 씹힘 방지용 커스텀 입력 컴포넌트
 // -------------------------------------------------------------
 const DBInput = ({ value, onSave, className, placeholder, type = "text" }: { value: string, onSave: (v: string) => void, className?: string, placeholder?: string, type?: string }) => {
   const [localVal, setLocalVal] = useState(value || '');
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
-    // 입력 중(포커스 상태)이 아닐 때만 외부(서버) 데이터로 업데이트하여 타자 씹힘 방지
     if (!isFocused) {
       setLocalVal(value || '');
     }
@@ -282,6 +280,38 @@ export default function App() {
     const updated = roomVolunteers.map(v => v.id === id ? { ...v, name } : v);
     saveToDB(songs, updated, scripture, meditation);
   };
+
+  // -------------------------------------------------------------
+  // 🔥 다운로드 기능 (개별 다운로드 & 전체 일괄 다운로드)
+  // -------------------------------------------------------------
+  const handleDownloadIndividual = (song: Song) => {
+    if (!song.sheetUrl) return alert('등록된 악보가 없습니다.');
+    const a = document.createElement('a');
+    a.href = song.sheetUrl;
+    // 다운로드 될 파일 이름 지정 (예: 곡제목_악보.jpg)
+    a.download = `${song.title}_악보.jpg`; 
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleDownloadAll = () => {
+    const songsWithSheet = songs.filter(s => s.sheetUrl);
+    if (songsWithSheet.length === 0) return alert('다운로드할 악보 이미지가 하나도 없습니다.');
+    
+    // 브라우저가 다중 다운로드를 차단하지 않도록 0.3초(300ms) 간격으로 순차적 다운로드 실행
+    songsWithSheet.forEach((song, index) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = song.sheetUrl;
+        a.download = `${index + 1}_${song.title}_악보.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, index * 300);
+    });
+  };
+  // -------------------------------------------------------------
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -696,7 +726,6 @@ export default function App() {
                         <div className="space-y-3">
                           <div>
                             <label className="text-[10px] font-bold text-slate-400">🏷️ 곡 제목</label>
-                            {/* DBInput 교체 적용 */}
                             <DBInput 
                               value={song.title} 
                               onSave={(val: string) => handleUpdateSong(song.id, 'title', val)} 
@@ -747,7 +776,6 @@ export default function App() {
                     {roomVolunteers.map((v) => (
                       <div key={v.id} className="flex items-center space-x-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                         <span className="w-32 text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-2 rounded-xl text-center">{v.part}</span>
-                        {/* DBInput 적용: 타자 씹힘 원천 봉쇄 */}
                         <DBInput 
                           value={v.name} 
                           onSave={(val: string) => handleUpdateVolunteerName(v.id, val)} 
@@ -814,20 +842,38 @@ export default function App() {
 
               {songs.length > 0 ? (
                 <>
-                  <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
-                    {songs.map((song, idx) => (
-                      <button key={song.id} onClick={() => setSelectedSongTab(idx)} className={`py-4 px-6 rounded-2xl text-sm font-black whitespace-nowrap shadow-sm transition ${selectedSongTab === idx ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
-                        🎵 {idx + 1}. {song.title}
-                      </button>
-                    ))}
+                  {/* 곡 목록(탭) 및 전체 악보 다운로드 버튼 */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide w-full sm:w-auto flex-1">
+                      {songs.map((song, idx) => (
+                        <button key={song.id} onClick={() => setSelectedSongTab(idx)} className={`py-3 px-5 rounded-2xl text-sm font-black whitespace-nowrap shadow-sm transition ${selectedSongTab === idx ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                          🎵 {idx + 1}. {song.title}
+                        </button>
+                      ))}
+                    </div>
+                    {/* 일괄 다운로드 버튼 */}
+                    <button onClick={handleDownloadAll} className="w-full sm:w-auto px-5 py-3 bg-indigo-100 text-indigo-700 rounded-xl text-xs font-black shadow-sm hover:bg-indigo-200 transition whitespace-nowrap">
+                      📥 전체 악보 일괄 다운로드
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
                     <div className="lg:col-span-2 bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm space-y-4">
-                      <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-2xl">
+                      
+                      {/* 개별 곡 상단 배너 및 개별 다운로드 버튼 */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-indigo-50 p-4 rounded-2xl gap-3">
                         <h3 className="text-lg font-black text-indigo-900">📄 {songs[selectedSongTab]?.title}</h3>
-                        <span className="text-xs font-bold text-indigo-600 bg-white px-3 py-1.5 rounded-full shadow-sm">🔄 송폼: {songs[selectedSongTab]?.form}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-bold text-indigo-600 bg-white px-3 py-1.5 rounded-full shadow-sm">🔄 송폼: {songs[selectedSongTab]?.form}</span>
+                          {/* 개별 다운로드 버튼 */}
+                          {songs[selectedSongTab]?.sheetUrl && (
+                            <button onClick={() => handleDownloadIndividual(songs[selectedSongTab])} className="text-xs font-black text-white bg-indigo-600 px-3 py-1.5 rounded-full shadow-sm hover:bg-indigo-700 transition">
+                              ⬇️ 개별 다운로드
+                            </button>
+                          )}
+                        </div>
                       </div>
+
                       <div className="bg-slate-50 rounded-2xl border border-slate-200 min-h-[400px] flex items-center justify-center p-4">
                         {songs[selectedSongTab]?.sheetUrl ? (
                           <img src={songs[selectedSongTab].sheetUrl} alt="악보 이미지" className="w-full object-contain rounded-xl shadow-sm max-h-[600px]" />
